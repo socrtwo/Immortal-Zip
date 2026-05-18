@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0d3b66" />
+<title>Immortal-Zip</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="application-name" content="Immortal-Zip" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header>
+  <h1>Immortal-Zip</h1>
+  <p class="tagline">Zip, unzip, and repair archives — entirely in your browser.</p>
+  <button id="installBtn" class="install" hidden>Install app</button>
+</header>
+
+<main>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="zip" role="tab">Zip</button>
+    <button class="tab" data-tab="unzip" role="tab">Unzip</button>
+    <button class="tab" data-tab="repair" role="tab">Repair</button>
+  </nav>
+
+  <section id="tab-zip" class="panel active">
+    <label class="dropzone" for="zipInput">
+      <input id="zipInput" type="file" multiple hidden />
+      <span class="hint">Drop files here or tap to choose</span>
+      <ul id="zipList" class="filelist"></ul>
+    </label>
+    <label class="row">
+      <span>Archive name</span>
+      <input id="zipName" type="text" value="archive.zip" />
+    </label>
+    <button id="zipBtn" class="primary">Create zip</button>
+  </section>
+
+  <section id="tab-unzip" class="panel">
+    <label class="dropzone" for="unzipInput">
+      <input id="unzipInput" type="file" accept=".zip,application/zip" hidden />
+      <span class="hint">Drop a .zip here or tap to choose</span>
+      <span id="unzipName" class="filename"></span>
+    </label>
+    <button id="unzipBtn" class="primary" disabled>Extract</button>
+    <ul id="unzipResults" class="filelist"></ul>
+  </section>
+
+  <section id="tab-repair" class="panel">
+    <label class="dropzone" for="repairInput">
+      <input id="repairInput" type="file" accept=".zip,application/zip,*/*" hidden />
+      <span class="hint">Drop a damaged .zip here or tap to choose</span>
+      <span id="repairName" class="filename"></span>
+    </label>
+    <p class="note">
+      Scans the file for salvageable members and rebuilds the archive.
+      Works even when the original archive will not open.
+    </p>
+    <button id="repairBtn" class="primary" disabled>Repair</button>
+    <pre id="repairLog" class="log" aria-live="polite"></pre>
+  </section>
+</main>
+
+<footer>
+  <progress id="progress" max="100" value="0"></progress>
+  <span id="status">Ready.</span>
+</footer>
+
+<script src="vendor/jszip.min.js"></script>
+<script src="vendor/fflate.min.js"></script>
+<script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('service-worker.js'));
+  }
+</script>
+</body>
+</html>

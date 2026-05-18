@@ -1,0 +1,182 @@
+:root {
+  --bg: #0d1b2a;
+  --panel: #1b2a3a;
+  --accent: #f4a261;
+  --primary: #2a9d8f;
+  --text: #e6edf3;
+  --muted: #9aa8b6;
+  --danger: #e76f51;
+  --good: #43aa8b;
+  --radius: 14px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+header {
+  padding: 22px 20px 12px;
+  text-align: center;
+  position: relative;
+}
+
+header h1 { margin: 0; font-size: 1.7rem; letter-spacing: -0.01em; }
+header .tagline { margin: 4px 0 0; color: var(--muted); font-size: 0.95rem; }
+
+button.install {
+  position: absolute;
+  right: 16px;
+  top: 22px;
+  background: var(--accent);
+  color: #21130d;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+main { flex: 1; padding: 12px 16px; max-width: 720px; width: 100%; margin: 0 auto; }
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  background: var(--panel);
+  padding: 4px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+}
+
+.tab {
+  flex: 1;
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  padding: 10px 12px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+.tab.active { background: var(--primary); color: white; }
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+.dropzone {
+  display: block;
+  min-height: 160px;
+  border: 2px dashed #3b4d63;
+  border-radius: var(--radius);
+  padding: 18px;
+  text-align: center;
+  cursor: pointer;
+  background: rgba(255,255,255,0.02);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.dropzone.drag { border-color: var(--accent); background: rgba(244,162,97,0.08); }
+.dropzone .hint { color: var(--muted); font-size: 0.95rem; }
+.dropzone .filename { display: block; margin-top: 8px; font-weight: 600; word-break: break-all; }
+
+.filelist {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  text-align: left;
+  max-height: 220px;
+  overflow: auto;
+}
+.filelist li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+.filelist li:nth-child(odd) { background: rgba(255,255,255,0.03); }
+.filelist a { color: var(--accent); text-decoration: none; }
+.filelist a:hover { text-decoration: underline; }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+}
+.row span { color: var(--muted); min-width: 110px; }
+.row input[type="text"] {
+  flex: 1;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid #2c3e54;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+button.primary {
+  width: 100%;
+  background: var(--primary);
+  color: white;
+  border: 0;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+}
+button.primary:disabled { background: #345b62; cursor: not-allowed; }
+
+.note { color: var(--muted); font-size: 0.9rem; }
+
+.log {
+  background: var(--panel);
+  border-radius: 10px;
+  padding: 10px;
+  max-height: 220px;
+  overflow: auto;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+
+footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: var(--bg);
+  border-top: 1px solid #1f2d3e;
+}
+progress {
+  flex: 1;
+  appearance: none;
+  height: 8px;
+  border: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--panel);
+}
+progress::-webkit-progress-bar { background: var(--panel); }
+progress::-webkit-progress-value { background: var(--primary); }
+progress::-moz-progress-bar { background: var(--primary); }
+#status { color: var(--muted); font-size: 0.85rem; }
