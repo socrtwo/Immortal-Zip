@@ -1,0 +1,65 @@
+{
+  "name": "immortal-unzip",
+  "version": "1.0.0",
+  "description": "Immortal Unzip — Fault-Tolerant ZIP Extractor with Repair Mode",
+  "main": "main.js",
+  "author": "socrtwo",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/socrtwo/Immortal-Zip.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac",
+    "build:dmg": "electron-builder --mac dmg",
+    "build:zip": "electron-builder --mac zip",
+    "build:universal": "electron-builder --mac --universal"
+  },
+  "build": {
+    "appId": "com.socrtwo.immortalunzip",
+    "productName": "Immortal Unzip",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "immortal-unzip.html"
+    ],
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] },
+        { "target": "zip", "arch": ["x64", "arm64"] }
+      ],
+      "icon": "icon.icns",
+      "category": "public.app-category.utilities",
+      "darkModeSupport": true,
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist"
+    },
+    "dmg": {
+      "title": "Immortal Unzip",
+      "iconSize": 80,
+      "contents": [
+        { "x": 190, "y": 320 },
+        { "x": 430, "y": 320, "type": "link", "path": "/Applications" }
+      ]
+    },
+    "fileAssociations": [
+      { "ext": "zip",  "name": "ZIP Archive",  "role": "Editor" },
+      { "ext": "jar",  "name": "JAR Archive",  "role": "Editor" },
+      { "ext": "apk",  "name": "APK Package",  "role": "Editor" },
+      { "ext": "docx", "name": "Word Document", "role": "Editor" },
+      { "ext": "xlsx", "name": "Excel Workbook", "role": "Editor" },
+      { "ext": "pptx", "name": "PowerPoint", "role": "Editor" },
+      { "ext": "epub", "name": "EPUB Book",  "role": "Editor" }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}

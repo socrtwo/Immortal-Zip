@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "Immortal Unzip",
+  "short_name": "Immortal Unzip",
+  "version": "1.0.0",
+  "description": "Fault-tolerant ZIP extractor with repair mode. Opens damaged ZIPs and recovers as many files as possible.",
+  "icons": {
+    "16":  "icons/icon16.png",
+    "32":  "icons/icon32.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "immortal-unzip.html",
+    "default_title": "Immortal Unzip",
+    "default_icon": {
+      "16":  "icons/icon16.png",
+      "32":  "icons/icon32.png",
+      "48":  "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "permissions": ["downloads"],
+  "host_permissions": [],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "file_handlers": [
+    {
+      "action": "/immortal-unzip.html",
+      "accept": {
+        "application/zip":            [".zip"],
+        "application/java-archive":   [".jar"],
+        "application/vnd.android.package-archive": [".apk"],
+        "application/epub+zip":       [".epub"],
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":       [".xlsx"],
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"]
+      }
+    }
+  ]
+}
