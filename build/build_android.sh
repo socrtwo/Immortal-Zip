@@ -41,15 +41,27 @@ cat > "$HOME/.bubblewrap/config.json" <<EOF
 EOF
 
 npm install --no-fund --no-audit @bubblewrap/cli
-npx bubblewrap init --manifest "https://${PAGES_HOST}/manifest.webmanifest" --directory . || true
-cp twa-manifest.json twa-manifest.json.gen 2>/dev/null || true
 
-# Use the patched manifest.
+# Sanity-check that the published manifest is reachable before bubblewrap
+# tries to parse it — otherwise we get a confusing "<!DOCTYPE" JSON error.
+echo ">>> Verifying https://${PAGES_HOST}/manifest.webmanifest is reachable"
+curl --fail --silent --show-error --retry 5 --retry-delay 5 \
+  "https://${PAGES_HOST}/manifest.webmanifest" >/dev/null
+
+# `init` may emit warnings; pipe a default "Y" answer for any prompts it
+# adds in future versions, but DO NOT mask non-zero exit codes — if init
+# fails we want the job to fail loudly rather than continue with a broken
+# project skeleton.
+yes | npx bubblewrap init --manifest "https://${PAGES_HOST}/manifest.webmanifest" --directory .
+
+# Use the patched manifest (overrides whatever init produced).
 cp "$ROOT/build/twa-manifest.json" ./twa-manifest.json
 sed -i "s|REPLACE_WITH_YOUR_PAGES_HOST|${PAGES_HOST}|g" twa-manifest.json
 
-# Build the signed APK.
-npx bubblewrap build --skipPwaValidation
+# Bubblewrap detects the manifest mismatch and asks whether to regenerate
+# the project. Answer "Y" so it rebuilds the Android skeleton against our
+# patched manifest before producing the APK.
+yes | npx bubblewrap build --skipPwaValidation
 
 APK_OUT="$ROOT/dist/Immortal-Zip-1.0.0.apk"
 mkdir -p "$(dirname "$APK_OUT")"
