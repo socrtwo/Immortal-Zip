@@ -82,7 +82,7 @@ jobs:
       - uses: android-actions/setup-android@v3
       - name: Build APK
         env:
-          PAGES_HOST: socrtwo.github.io/immortal-zip
+          PAGES_HOST: socrtwo.github.io/Immortal-Zip
           KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS || 'immortal-zip' }}
         run: bash build/build_android.sh
       - uses: actions/upload-artifact@v4

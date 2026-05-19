@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-PAGES_HOST="${PAGES_HOST:-socrtwo.github.io/immortal-zip}"
+PAGES_HOST="${PAGES_HOST:-socrtwo.github.io/Immortal-Zip}"
 KEYSTORE_PASS="${KEYSTORE_PASS:-immortal-zip}"
 
 WORK="$ROOT/dist/android"
