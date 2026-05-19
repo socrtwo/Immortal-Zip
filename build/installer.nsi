@@ -34,7 +34,7 @@ SetCompressor /SOLID lzma
 
 Section "Immortal-Zip" SecMain
   SetOutPath "$INSTDIR"
-  File /r "dist\immortal-zip\*.*"
+  File "..\dist\immortal-zip.exe"
   File "immortal-zip.ico"
 
   CreateDirectory "$SMPROGRAMS\${APP_NAME}"
