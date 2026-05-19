@@ -44,9 +44,29 @@ npm install --no-fund --no-audit @bubblewrap/cli
 
 # Sanity-check that the published manifest is reachable before bubblewrap
 # tries to parse it — otherwise we get a confusing "<!DOCTYPE" JSON error.
-echo ">>> Verifying https://${PAGES_HOST}/manifest.webmanifest is reachable"
-curl --fail --silent --show-error --retry 5 --retry-delay 5 \
-  "https://${PAGES_HOST}/manifest.webmanifest" >/dev/null
+MANIFEST_URL="https://${PAGES_HOST}/manifest.webmanifest"
+echo ">>> Verifying ${MANIFEST_URL} is reachable"
+if ! curl --fail --location --silent --show-error \
+       --retry 5 --retry-delay 5 \
+       "${MANIFEST_URL}" >/dev/null; then
+  cat <<EOF >&2
+
+ERROR: Could not fetch the PWA manifest at
+  ${MANIFEST_URL}
+
+Bubblewrap needs this to build the Android TWA. The most common cause is
+that GitHub Pages has not been enabled for this repository yet. To fix:
+
+  1. Open Settings → Pages on the repo.
+  2. Under "Build and deployment", set Source to "GitHub Actions".
+  3. Re-run the "Deploy Pages" workflow (Actions tab → Deploy Pages →
+     Run workflow), and confirm \${MANIFEST_URL} returns JSON in a
+     browser.
+  4. Re-run this release workflow.
+
+EOF
+  exit 1
+fi
 
 # `init` may emit warnings; pipe a default "Y" answer for any prompts it
 # adds in future versions, but DO NOT mask non-zero exit codes — if init
