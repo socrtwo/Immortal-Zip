@@ -30,6 +30,16 @@ else
 fi
 
 # Bubblewrap workflow.
+# Pre-seed the Bubblewrap config so the CLI never asks the interactive
+# "Do you want Bubblewrap to install the JDK?" question that hangs CI.
+mkdir -p "$HOME/.bubblewrap"
+cat > "$HOME/.bubblewrap/config.json" <<EOF
+{
+  "jdkPath": "${JAVA_HOME}",
+  "androidSdkPath": "${ANDROID_HOME:-${ANDROID_SDK_ROOT}}"
+}
+EOF
+
 npm install --no-fund --no-audit @bubblewrap/cli
 npx bubblewrap init --manifest "https://${PAGES_HOST}/manifest.webmanifest" --directory . || true
 cp twa-manifest.json twa-manifest.json.gen 2>/dev/null || true
