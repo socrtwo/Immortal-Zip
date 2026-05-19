@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "immortal-zip"
+version = "1.0.0"
+description = "Zip, unzip, and repair corrupted zip archives."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+authors = [{ name = "Immortal-Zip contributors" }]
+keywords = ["zip", "unzip", "repair", "archive"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Topic :: System :: Archiving :: Compression",
+]
+
+[project.scripts]
+immortal-zip = "immortal_zip.cli:main"
+
+[project.gui-scripts]
+immortal-zip-gui = "immortal_zip.gui:run"
+
+[project.urls]
+Homepage = "https://github.com/socrtwo/immortal-zip"
+Repository = "https://github.com/socrtwo/immortal-zip"
+
+[tool.setuptools.packages.find]
+include = ["immortal_zip*"]
+exclude = ["tests*", "build*", "web*"]
