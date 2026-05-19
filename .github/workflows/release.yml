@@ -133,19 +133,6 @@ jobs:
         with:
           name: web
           path: dist/*.zip
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: web
-
-  pages:
-    needs: web
-    runs-on: ubuntu-22.04
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - id: deploy
-        uses: actions/deploy-pages@v4
 
   release:
     needs: [linux, macos, windows, android, web]
