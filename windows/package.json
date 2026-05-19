@@ -1,0 +1,56 @@
+{
+  "name": "immortal-unzip",
+  "version": "1.0.0",
+  "description": "Immortal Unzip — Fault-Tolerant ZIP Extractor with Repair Mode",
+  "main": "main.js",
+  "author": "socrtwo",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/socrtwo/Immortal-Zip.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "build:portable": "electron-builder --win portable",
+    "build:nsis": "electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.socrtwo.immortalunzip",
+    "productName": "Immortal Unzip",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "immortal-unzip.html"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis",     "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "fileAssociations": [
+      { "ext": "zip",  "name": "ZIP Archive",  "role": "Editor" },
+      { "ext": "jar",  "name": "JAR Archive",  "role": "Editor" },
+      { "ext": "apk",  "name": "APK Package",  "role": "Editor" },
+      { "ext": "docx", "name": "Word Document", "role": "Editor" },
+      { "ext": "xlsx", "name": "Excel Workbook", "role": "Editor" },
+      { "ext": "pptx", "name": "PowerPoint", "role": "Editor" },
+      { "ext": "epub", "name": "EPUB Book",  "role": "Editor" }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^41.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}

@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Immortal Unzip — Fault-Tolerant ZIP Extractor v1.0</title>
+    <style>
+        :root {
+            --bg: #121212; --panel: #1e1e1e; --panel2: #252525;
+            --text: #e0e0e0; --muted: #888; --accent: #00e5ff;
+            --ok: #76ff03; --warn: #ffd740; --err: #ff4444;
+            --border: #333; --btn: #2a2a2a; --btn-hover: #383838;
+            --zip: #f0a030;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+        header { background: var(--panel); border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; align-items: center; gap: 12px; }
+        header .logo { font-size: 1.6rem; }
+        header h1 { font-size: 1.15rem; color: var(--accent); letter-spacing: .02em; }
+        header .sub { font-size: .75rem; color: var(--muted); margin-top: 1px; }
+        main { flex: 1; padding: 20px; max-width: 1000px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+        /* Drop zone */
+        #dropzone {
+            border: 2px dashed var(--border); border-radius: 10px;
+            padding: 40px 20px; text-align: center; cursor: pointer;
+            transition: border-color .2s, background .2s;
+        }
+        #dropzone:hover, #dropzone.drag { border-color: var(--accent); background: rgba(0,229,255,.04); }
+        #dropzone .dz-icon { font-size: 3rem; margin-bottom: 10px; }
+        #dropzone p { color: var(--muted); font-size: .9rem; }
+        #dropzone strong { color: var(--text); }
+        #fileInput { display: none; }
+
+        /* Toolbar */
+        #toolbar { display: none; align-items: center; gap: 10px; flex-wrap: wrap; }
+        #toolbar.show { display: flex; }
+        .btn {
+            padding: 7px 16px; border-radius: 6px; border: 1px solid var(--border);
+            background: var(--btn); color: var(--text); font-size: .85rem;
+            cursor: pointer; transition: background .15s; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn:hover { background: var(--btn-hover); }
+        .btn-accent { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+        .btn-accent:hover { background: #00c0d8; }
+        .btn-warn { background: var(--warn); color: #000; border-color: var(--warn); }
+        .btn-warn:hover { background: #e0b800; }
+        .btn-sm { padding: 4px 10px; font-size: .78rem; }
+        #fileName { flex: 1; font-size: .85rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* Stats bar */
+        #stats { display: none; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-size: .82rem; color: var(--muted); gap: 20px; flex-wrap: wrap; }
+        #stats.show { display: flex; }
+        #stats span { color: var(--text); }
+        .stat-badge { background: var(--panel2); padding: 2px 8px; border-radius: 4px; }
+
+        /* File table */
+        #tableWrap { display: none; overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+        #tableWrap.show { display: block; }
+        table { width: 100%; border-collapse: collapse; font-size: .83rem; }
+        thead th { background: var(--panel2); color: var(--muted); font-weight: 600; padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1; }
+        tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: rgba(255,255,255,.03); }
+        tbody td { padding: 7px 12px; vertical-align: middle; }
+        .td-name { font-family: monospace; word-break: break-all; }
+        .td-dir { color: var(--muted); }
+        .td-size { text-align: right; white-space: nowrap; color: var(--muted); }
+        .td-ratio { text-align: right; white-space: nowrap; }
+        .td-method { white-space: nowrap; }
+        .td-status { white-space: nowrap; }
+        .td-action { white-space: nowrap; text-align: center; }
+        .badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: .75rem; font-weight: 600; }
+        .badge-ok    { background: rgba(118,255,3,.15);  color: var(--ok);   }
+        .badge-warn  { background: rgba(255,215,64,.15); color: var(--warn); }
+        .badge-err   { background: rgba(255,68,68,.15);  color: var(--err);  }
+        .badge-dir   { background: rgba(0,229,255,.1);   color: var(--accent); }
+        .badge-store { background: rgba(160,160,160,.15); color: #aaa; }
+        .badge-deflate { background: rgba(0,229,255,.1); color: var(--accent); }
+
+        /* Log */
+        #logWrap { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        #logTitle { padding: 8px 14px; font-size: .8rem; color: var(--muted); background: var(--panel2); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+        #log { padding: 10px 14px; font-family: monospace; font-size: .78rem; max-height: 160px; overflow-y: auto; color: var(--muted); }
+        #log .l-ok   { color: var(--ok); }
+        #log .l-warn { color: var(--warn); }
+        #log .l-err  { color: var(--err); }
+        #log .l-info { color: var(--accent); }
+
+        /* Repair banner */
+        #repairBanner { display: none; background: rgba(255,215,64,.08); border: 1px solid rgba(255,215,64,.3); border-radius: 8px; padding: 12px 16px; font-size: .85rem; color: var(--warn); gap: 12px; align-items: center; flex-wrap: wrap; }
+        #repairBanner.show { display: flex; }
+        #repairBanner p { flex: 1; }
+
+        /* Progress */
+        #progress { display: none; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+        #progress.show { display: block; }
+        #progressBar { height: 100%; background: var(--accent); transition: width .2s; width: 0; }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .td-ratio, .td-method { display: none; }
+            main { padding: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <span class="logo">🗜️</span>
+    <div>
+        <h1>Immortal Unzip</h1>
+        <div class="sub">Fault-Tolerant ZIP Extractor with Repair Mode — v1.0</div>
+    </div>
+</header>
+
+<main>
+    <!-- Drop zone -->
+    <div id="dropzone" onclick="document.getElementById('fileInput').click()">
+        <div class="dz-icon">📦</div>
+        <p><strong>Drop a ZIP file here</strong> or click to browse</p>
+        <p style="margin-top:6px">Supports standard, damaged, and partially-corrupt ZIP archives</p>
+        <input type="file" id="fileInput" accept=".zip,.jar,.apk,.docx,.xlsx,.pptx,.odt,.ods,.odp,.epub">
+    </div>
+
+    <!-- Toolbar -->
+    <div id="toolbar">
+        <span id="fileName"></span>
+        <button class="btn btn-accent" id="btnExtractAll" onclick="extractAll()">⬇ Extract All</button>
+        <button class="btn" id="btnClear" onclick="clearFile()">✕ Clear</button>
+    </div>
+
+    <!-- Repair banner -->
+    <div id="repairBanner">
+        <span>⚠️</span>
+        <p id="repairMsg">This ZIP appears to be damaged or truncated. Repair mode was used to recover as many files as possible.</p>
+        <button class="btn btn-warn" onclick="runRepairScan()">🔧 Re-scan (Repair Mode)</button>
+    </div>
+
+    <!-- Stats -->
+    <div id="stats">
+        <div>Files: <span class="stat-badge" id="statFiles">0</span></div>
+        <div>Total size: <span class="stat-badge" id="statSize">—</span></div>
+        <div>Compressed: <span class="stat-badge" id="statComp">—</span></div>
+        <div>Savings: <span class="stat-badge" id="statRatio">—</span></div>
+        <div>Status: <span class="stat-badge" id="statStatus">—</span></div>
+    </div>
+
+    <!-- Progress -->
+    <div id="progress"><div id="progressBar"></div></div>
+
+    <!-- File listing table -->
+    <div id="tableWrap">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:50%">Name</th>
+                    <th class="td-size">Orig. Size</th>
+                    <th class="td-size">Comp. Size</th>
+                    <th class="td-ratio">Ratio</th>
+                    <th class="td-method">Method</th>
+                    <th class="td-status">Status</th>
+                    <th class="td-action">Extract</th>
+                </tr>
+            </thead>
+            <tbody id="fileList"></tbody>
+        </table>
+    </div>
+
+    <!-- Log -->
+    <div id="logWrap">
+        <div id="logTitle">
+            <span>📋 Log</span>
+            <span id="logClear" style="cursor:pointer;color:var(--accent)" onclick="clearLog()">clear</span>
+        </div>
+        <div id="log">Ready. Open a ZIP file to begin.</div>
+    </div>
+</main>
+
+<script>
+// ============================================================================
+// IMMORTAL INFLATER (Fault-Tolerant DEFLATE Decoder)
+// Ported from https://github.com/socrtwo/Universal-File-Repair-Tool
+// ============================================================================
+const ImmortalInflate = (function () {
+    class BitStream {
+        constructor(u8) { this.buf = u8; this.pos = 0; this.bit = 0; this.len = u8.length; }
+        read(n) {
+            let v = 0;
+            for (let i = 0; i < n; i++) {
+                if (this.pos >= this.len) return -1;
+                v |= ((this.buf[this.pos] >>> this.bit) & 1) << i;
+                this.bit++;
+                if (this.bit === 8) { this.bit = 0; this.pos++; }
+            }
+            return v;
+        }
+        align() { if (this.bit !== 0) { this.bit = 0; this.pos++; } }
+    }
+    const FIXED_LIT = new Uint8Array(288);
+    for (let i = 0; i < 144; i++) FIXED_LIT[i] = 8;
+    for (let i = 144; i < 256; i++) FIXED_LIT[i] = 9;
+    for (let i = 256; i < 280; i++) FIXED_LIT[i] = 7;
+    for (let i = 280; i < 288; i++) FIXED_LIT[i] = 8;
+    const FIXED_DIST = new Uint8Array(32); for (let i = 0; i < 32; i++) FIXED_DIST[i] = 5;
+    const CLEN_ORDER = [16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15];
+    const LEN_BASE   = [3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258];
+    const LEN_EXTRA  = [0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0];
+    const DIST_BASE  = [1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577];
+    const DIST_EXTRA = [0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13];
+    function buildTree(lengths) {
+        const counts = new Int32Array(16), nextCode = new Int32Array(16); let maxLen = 0;
+        for (let i = 0; i < lengths.length; i++) { counts[lengths[i]]++; if (lengths[i] > maxLen) maxLen = lengths[i]; }
+        if (maxLen === 0) return null;
+        let code = 0; counts[0] = 0;
+        for (let i = 1; i <= 15; i++) { code = (code + counts[i - 1]) << 1; nextCode[i] = code; }
+        const map = {};
+        for (let i = 0; i < lengths.length; i++) { const len = lengths[i]; if (len !== 0) { map[(len << 16) | nextCode[len]] = i; nextCode[len]++; } }
+        return { map, maxLen };
+    }
+    function decodeSym(s, t) {
+        let c = 0;
+        for (let l = 1; l <= t.maxLen; l++) { const b = s.read(1); if (b === -1) return -1; c = (c << 1) | b; const k = (l << 16) | c; if (t.map[k] !== undefined) return t.map[k]; }
+        return -2;
+    }
+    return function ImmortalInflate(u8) {
+        const s = new BitStream(u8); const out = []; let bfinal = 0, corrupted = false;
+        try {
+            while (!bfinal) {
+                bfinal = s.read(1); const btype = s.read(2);
+                if (bfinal === -1 || btype === -1) { corrupted = true; break; }
+                if (btype === 0) {
+                    s.align(); const len = s.read(16); s.read(16);
+                    if (len === -1) { corrupted = true; break; }
+                    for (let i = 0; i < len; i++) out.push(s.buf[s.pos++] || 0);
+                } else if (btype === 1 || btype === 2) {
+                    let lt, dt;
+                    if (btype === 1) { lt = buildTree(FIXED_LIT); dt = buildTree(FIXED_DIST); }
+                    else {
+                        const hl = s.read(5) + 257, hd = s.read(5) + 1, hc = s.read(4) + 4;
+                        if (hl < 257) { corrupted = true; break; }
+                        const cl = new Uint8Array(19); for (let i = 0; i < hc; i++) cl[CLEN_ORDER[i]] = s.read(3);
+                        const ct = buildTree(cl); if (!ct) { corrupted = true; break; }
+                        const unpack = (count) => {
+                            const r = [];
+                            while (r.length < count) {
+                                const sy = decodeSym(s, ct);
+                                if (sy < 0 || sy > 18) return null;
+                                if (sy < 16) r.push(sy);
+                                else if (sy === 16) { let c = 3 + s.read(2), p = r[r.length - 1]; while (c--) r.push(p); }
+                                else if (sy === 17) { let z = 3 + s.read(3); while (z--) r.push(0); }
+                                else if (sy === 18) { let z = 11 + s.read(7); while (z--) r.push(0); }
+                            }
+                            return new Uint8Array(r);
+                        };
+                        const ll = unpack(hl), dl = unpack(hd);
+                        if (!ll || !dl) { corrupted = true; break; }
+                        lt = buildTree(ll); dt = buildTree(dl);
+                    }
+                    if (!lt || !dt) { corrupted = true; break; }
+                    while (true) {
+                        const sym = decodeSym(s, lt);
+                        if (sym === -1 || sym === -2) { corrupted = true; break; }
+                        if (sym === 256) break;
+                        if (sym < 256) { out.push(sym); }
+                        else {
+                            const lc = sym - 257; if (lc > 28) { corrupted = true; break; }
+                            const len = LEN_BASE[lc] + s.read(LEN_EXTRA[lc]);
+                            const dc = decodeSym(s, dt); if (dc < 0) { corrupted = true; break; }
+                            const dist = DIST_BASE[dc] + s.read(DIST_EXTRA[dc]);
+                            if (dist > out.length) { corrupted = true; bfinal = 1; break; }
+                            let ptr = out.length - dist;
+                            for (let i = 0; i < len; i++) out.push(out[ptr++]);
+                        }
+                    }
+                } else { corrupted = true; break; }
+            }
+        } catch (e) { corrupted = true; }
+        return { data: new Uint8Array(out), isCorrupt: corrupted };
+    };
+})();
+
+// ============================================================================
+// ZIP PARSER
+// ============================================================================
+function u16(b, o) { return b[o] | (b[o+1] << 8); }
+function u32(b, o) { return ((b[o] | (b[o+1] << 8) | (b[o+2] << 16) | (b[o+3] << 24)) >>> 0); }
+function readStr(b, o, l) {
+    try { return new TextDecoder('utf-8', { fatal: false }).decode(b.subarray(o, o + l)); }
+    catch(e) { return String.fromCharCode(...b.subarray(o, o + l)); }
+}
+function fmtSz(n) {
+    if (!n) return '—'; if (n < 1024) return n + ' B';
+    if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1048576).toFixed(2) + ' MB';
+}
+
+let currentBuf  = null;
+let currentName = '';
+let allEntries  = [];
+
+function parseZip(buf) {
+    const entries = [];
+    let hasCorrupt = false;
+
+    // Find EOCD
+    let eocd = -1;
+    for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) {
+        if (buf[i] === 0x50 && buf[i+1] === 0x4b && buf[i+2] === 0x05 && buf[i+3] === 0x06) { eocd = i; break; }
+    }
+
+    if (eocd !== -1) {
+        try {
+            let cdOff  = u32(buf, eocd + 16);
+            let cdCnt  = u16(buf, eocd + 10);
+
+            // ZIP64
+            if (cdOff === 0xffffffff || cdCnt === 0xffff) {
+                for (let i = buf.length - 56; i >= 0; i--) {
+                    if (buf[i] === 0x50 && buf[i+1] === 0x4b && buf[i+2] === 0x06 && buf[i+3] === 0x06) {
+                        const dv = new DataView(buf.buffer);
+                        cdOff = Number(dv.getBigUint64(i + 48, true));
+                        cdCnt = Number(dv.getBigUint64(i + 32, true));
+                        break;
+                    }
+                }
+            }
+
+            let pos = cdOff;
+            for (let i = 0; i < cdCnt && pos + 46 <= buf.length; i++) {
+                if (u32(buf, pos) !== 0x02014b50) break;
+                const method   = u16(buf, pos + 10);
+                const crc32    = u32(buf, pos + 16);
+                let   compSz   = u32(buf, pos + 20);
+                let   uncompSz = u32(buf, pos + 24);
+                const nl = u16(buf, pos + 28), el = u16(buf, pos + 30), cl = u16(buf, pos + 32);
+                let   lfhOff = u32(buf, pos + 42);
+                const name = readStr(buf, pos + 46, nl);
+
+                if (compSz === 0xffffffff || uncompSz === 0xffffffff || lfhOff === 0xffffffff) {
+                    const ex = buf.subarray(pos + 46 + nl, pos + 46 + nl + el);
+                    let ep = 0;
+                    while (ep + 4 <= ex.length) {
+                        const tag = u16(ex, ep), esz = u16(ex, ep + 2);
+                        if (tag === 0x0001) {
+                            let fp = ep + 4;
+                            const dv = new DataView(ex.buffer, ex.byteOffset);
+                            try {
+                                if (uncompSz === 0xffffffff) { uncompSz = Number(dv.getBigUint64(fp, true)); fp += 8; }
+                                if (compSz   === 0xffffffff) { compSz   = Number(dv.getBigUint64(fp, true)); fp += 8; }
+                                if (lfhOff   === 0xffffffff) { lfhOff   = Number(dv.getBigUint64(fp, true)); }
+                            } catch(e) {}
+                            break;
+                        }
+                        ep += 4 + esz;
+                    }
+                }
+
+                let dataOff = -1;
+                if (lfhOff + 30 <= buf.length && u32(buf, lfhOff) === 0x04034b50) {
+                    const lnl = u16(buf, lfhOff + 26), lel = u16(buf, lfhOff + 28);
+                    dataOff = lfhOff + 30 + lnl + lel;
+                }
+
+                entries.push({ name, method, compSz, uncompSz, dataOff, crc32, isDir: name.endsWith('/'), isCorrupt: false });
+                pos += 46 + nl + el + cl;
+            }
+        } catch(e) { log('Central directory error: ' + e.message, 'warn'); }
+    }
+
+    if (entries.length === 0) {
+        hasCorrupt = true;
+        log('Central directory missing or unreadable — scanning raw bytes...', 'warn');
+        let off = 0;
+        while (off < buf.length - 30) {
+            if (buf[off] !== 0x50 || buf[off+1] !== 0x4b || buf[off+2] !== 0x03 || buf[off+3] !== 0x04) { off++; continue; }
+            try {
+                const method   = u16(buf, off + 8);
+                const crc32    = u32(buf, off + 14);
+                let   compSz   = u32(buf, off + 18);
+                let   uncompSz = u32(buf, off + 22);
+                const nl = u16(buf, off + 26), el = u16(buf, off + 28);
+                if (nl === 0 || nl > 512) { off++; continue; }
+                const name = readStr(buf, off + 30, nl);
+                const dataOff = off + 30 + nl + el;
+                if (compSz === 0 || compSz > buf.length) {
+                    let next = buf.length;
+                    for (let k = dataOff + 1; k < buf.length - 4; k++) {
+                        if (buf[k] === 0x50 && buf[k+1] === 0x4b && (buf[k+2] === 0x01 || buf[k+2] === 0x03 || buf[k+2] === 0x05 || buf[k+2] === 0x07)) { next = k; break; }
+                    }
+                    compSz = next - dataOff;
+                }
+                entries.push({ name, method, compSz, uncompSz, dataOff, crc32, isDir: name.endsWith('/'), isCorrupt: true });
+                off = dataOff + compSz;
+            } catch(e) { off++; }
+        }
+    }
+
+    return { entries, hasCorrupt };
+}
+
+function extractEntry(entry) {
+    if (entry.isDir) return { data: new Uint8Array(0), isCorrupt: false };
+    const raw = currentBuf.subarray(entry.dataOff, Math.min(entry.dataOff + entry.compSz, currentBuf.length));
+    if (entry.method === 0) return { data: raw.slice(), isCorrupt: false };
+    if (entry.method === 8) {
+        let best = { data: new Uint8Array(0), isCorrupt: true }, bestScore = 0;
+        for (let shift = 0; shift < Math.min(48, raw.length); shift++) {
+            const res = ImmortalInflate(raw.subarray(shift));
+            if (res.data.length > 0) {
+                const score = res.data.length + (res.isCorrupt ? 0 : 1000);
+                if (score > bestScore) { bestScore = score; best = res; }
+                if (score > 1000) break;
+            }
+        }
+        return best;
+    }
+    return { data: raw.slice(), isCorrupt: true };
+}
+
+// ============================================================================
+// UI
+// ============================================================================
+function log(msg, type = 'info') {
+    const el = document.getElementById('log');
+    const line = document.createElement('div');
+    line.className = 'l-' + type;
+    line.textContent = '» ' + msg;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+}
+function clearLog() { document.getElementById('log').innerHTML = ''; }
+
+function clearFile() {
+    currentBuf = null; currentName = ''; allEntries = [];
+    document.getElementById('dropzone').style.display = '';
+    document.getElementById('toolbar').classList.remove('show');
+    document.getElementById('stats').classList.remove('show');
+    document.getElementById('tableWrap').classList.remove('show');
+    document.getElementById('repairBanner').classList.remove('show');
+    document.getElementById('progress').classList.remove('show');
+    document.getElementById('fileList').innerHTML = '';
+    clearLog();
+    log('Ready. Open a ZIP file to begin.');
+}
+
+function setProgress(pct) {
+    const p = document.getElementById('progress');
+    document.getElementById('progressBar').style.width = pct + '%';
+    p.classList.toggle('show', pct > 0 && pct < 100);
+}
+
+function loadBuffer(buf, name) {
+    currentBuf  = buf;
+    currentName = name;
+    log('Loading: ' + name + ' (' + fmtSz(buf.length) + ')', 'info');
+    document.getElementById('dropzone').style.display = 'none';
+    document.getElementById('toolbar').classList.add('show');
+    document.getElementById('fileName').textContent = name;
+
+    const { entries, hasCorrupt } = parseZip(buf);
+    allEntries = entries;
+
+    if (hasCorrupt) {
+        document.getElementById('repairBanner').classList.add('show');
+        log('⚠ Damage detected — repair mode recovered ' + entries.length + ' entries', 'warn');
+    } else {
+        log('✓ Parsed ' + entries.length + ' entries', 'ok');
+    }
+
+    renderTable(entries);
+    updateStats(entries, hasCorrupt);
+}
+
+function renderTable(entries) {
+    const tbody = document.getElementById('fileList');
+    tbody.innerHTML = '';
+    const tableWrap = document.getElementById('tableWrap');
+    if (entries.length === 0) { tableWrap.classList.remove('show'); return; }
+    tableWrap.classList.add('show');
+
+    entries.forEach((e, idx) => {
+        const tr = document.createElement('tr');
+        const ratio = e.uncompSz ? Math.round((1 - e.compSz / e.uncompSz) * 100) : 0;
+        const methodBadge = e.isDir
+            ? '<span class="badge badge-dir">Dir</span>'
+            : e.method === 0
+                ? '<span class="badge badge-store">Store</span>'
+                : '<span class="badge badge-deflate">Deflate</span>';
+        const statusBadge = e.isDir
+            ? ''
+            : e.isCorrupt
+                ? '<span class="badge badge-warn">Partial</span>'
+                : '<span class="badge badge-ok">OK</span>';
+        const extractBtn = e.isDir
+            ? ''
+            : `<button class="btn btn-sm" onclick="extractOne(${idx})">⬇</button>`;
+
+        tr.innerHTML = `
+            <td class="td-name ${e.isDir ? 'td-dir' : ''}">${esc(e.name)}</td>
+            <td class="td-size">${fmtSz(e.uncompSz)}</td>
+            <td class="td-size">${fmtSz(e.compSz)}</td>
+            <td class="td-ratio">${e.isDir || !e.uncompSz ? '—' : ratio + '%'}</td>
+            <td class="td-method">${methodBadge}</td>
+            <td class="td-status">${statusBadge}</td>
+            <td class="td-action">${extractBtn}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function updateStats(entries, hasCorrupt) {
+    const files = entries.filter(e => !e.isDir);
+    const totalUncomp = files.reduce((s, e) => s + (e.uncompSz || 0), 0);
+    const totalComp   = files.reduce((s, e) => s + (e.compSz  || 0), 0);
+    const ratio = totalUncomp ? Math.round((1 - totalComp / totalUncomp) * 100) : 0;
+    document.getElementById('statFiles').textContent = files.length + ' file' + (files.length !== 1 ? 's' : '');
+    document.getElementById('statSize').textContent  = fmtSz(totalUncomp);
+    document.getElementById('statComp').textContent  = fmtSz(totalComp);
+    document.getElementById('statRatio').textContent = ratio + '% savings';
+    document.getElementById('statStatus').textContent = hasCorrupt ? '⚠ Repaired' : '✓ Healthy';
+    document.getElementById('stats').classList.add('show');
+}
+
+function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function downloadBytes(data, name) {
+    const blob = new Blob([data]);
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function extractOne(idx) {
+    const entry = allEntries[idx];
+    if (!entry || entry.isDir) return;
+    log('Extracting: ' + entry.name, 'info');
+    const { data, isCorrupt } = extractEntry(entry);
+    if (data.length === 0) { log('✗ Failed to extract: ' + entry.name, 'err'); return; }
+    log((isCorrupt ? '⚠ Partial' : '✓') + ' Extracted: ' + entry.name + ' (' + fmtSz(data.length) + ')', isCorrupt ? 'warn' : 'ok');
+    const fname = entry.name.split('/').pop() || entry.name;
+    if (window.electronAPI) {
+        const b64 = btoa(String.fromCharCode(...data));
+        window.electronAPI.saveFile(fname, b64);
+    } else {
+        downloadBytes(data, fname);
+    }
+}
+
+async function extractAll() {
+    const files = allEntries.filter(e => !e.isDir);
+    if (files.length === 0) { log('No files to extract.', 'warn'); return; }
+
+    // If Electron, save each file individually; otherwise bundle into ZIP
+    if (window.electronAPI) {
+        for (let i = 0; i < files.length; i++) {
+            setProgress(Math.round((i / files.length) * 100));
+            const entry = files[i];
+            const { data } = extractEntry(entry);
+            if (data.length > 0) {
+                const fname = entry.name.split('/').pop() || entry.name;
+                const b64 = btoa(String.fromCharCode(...data));
+                await window.electronAPI.saveFile(fname, b64);
+            }
+        }
+        setProgress(100);
+        setTimeout(() => setProgress(0), 1000);
+        log('✓ Extracted ' + files.length + ' files', 'ok');
+        return;
+    }
+
+    // Web: bundle into a new ZIP using built-in compression
+    log('Building extraction bundle...', 'info');
+    setProgress(5);
+
+    // Use CompressionStream if available (modern browsers), else store uncompressed
+    const zipData = await buildOutputZip(files);
+    setProgress(95);
+    const baseName = currentName.replace(/\.zip$/i, '').replace(/\.[^.]+$/, '') || 'extracted';
+    downloadBytes(zipData, baseName + '_extracted.zip');
+    setProgress(100);
+    setTimeout(() => setProgress(0), 800);
+    log('✓ Extracted ' + files.length + ' files → ' + baseName + '_extracted.zip', 'ok');
+}
+
+async function buildOutputZip(files) {
+    // Simple ZIP builder (STORE method) — no external dependency needed
+    const localHeaders = [];
+    const centralDir   = [];
+    const chunks       = [];
+    let   offset       = 0;
+
+    for (let i = 0; i < files.length; i++) {
+        setProgress(5 + Math.round((i / files.length) * 85));
+        const entry = files[i];
+        const { data } = extractEntry(entry);
+        if (data.length === 0) continue;
+
+        const nameBytes  = new TextEncoder().encode(entry.name);
+        const crc        = crc32(data);
+        const localHdr   = buildLocalHeader(nameBytes, data.length, crc);
+        const centralHdr = buildCentralHeader(nameBytes, data.length, crc, offset);
+
+        chunks.push(localHdr, data);
+        centralDir.push(centralHdr);
+        offset += localHdr.length + data.length;
+    }
+
+    const cdStart  = offset;
+    const cdChunks = centralDir;
+    const cdSize   = cdChunks.reduce((s, c) => s + c.length, 0);
+    const eocd     = buildEOCD(cdChunks.length, cdSize, cdStart);
+
+    return concatU8([...chunks, ...cdChunks, eocd]);
+}
+
+function buildLocalHeader(nameBytes, size, crc) {
+    const buf = new Uint8Array(30 + nameBytes.length);
+    const dv  = new DataView(buf.buffer);
+    dv.setUint32(0, 0x04034b50, true);  // sig
+    dv.setUint16(4, 20, true);           // version needed
+    dv.setUint16(6, 0, true);            // flags
+    dv.setUint16(8, 0, true);            // method: STORE
+    dv.setUint16(10, 0, true);           // mod time
+    dv.setUint16(12, 0, true);           // mod date
+    dv.setUint32(14, crc, true);
+    dv.setUint32(18, size, true);        // comp size
+    dv.setUint32(22, size, true);        // uncomp size
+    dv.setUint16(26, nameBytes.length, true);
+    dv.setUint16(28, 0, true);           // extra len
+    buf.set(nameBytes, 30);
+    return buf;
+}
+
+function buildCentralHeader(nameBytes, size, crc, localOffset) {
+    const buf = new Uint8Array(46 + nameBytes.length);
+    const dv  = new DataView(buf.buffer);
+    dv.setUint32(0, 0x02014b50, true);
+    dv.setUint16(4, 20, true);   // version made by
+    dv.setUint16(6, 20, true);   // version needed
+    dv.setUint16(8, 0, true);    // flags
+    dv.setUint16(10, 0, true);   // method: STORE
+    dv.setUint16(12, 0, true);   // mod time
+    dv.setUint16(14, 0, true);   // mod date
+    dv.setUint32(16, crc, true);
+    dv.setUint32(20, size, true);
+    dv.setUint32(24, size, true);
+    dv.setUint16(28, nameBytes.length, true);
+    dv.setUint16(30, 0, true);   // extra
+    dv.setUint16(32, 0, true);   // comment
+    dv.setUint16(34, 0, true);   // disk start
+    dv.setUint16(36, 0, true);   // int attr
+    dv.setUint32(38, 0, true);   // ext attr
+    dv.setUint32(42, localOffset, true);
+    buf.set(nameBytes, 46);
+    return buf;
+}
+
+function buildEOCD(count, cdSize, cdOffset) {
+    const buf = new Uint8Array(22);
+    const dv  = new DataView(buf.buffer);
+    dv.setUint32(0, 0x06054b50, true);
+    dv.setUint16(4, 0, true);
+    dv.setUint16(6, 0, true);
+    dv.setUint16(8, count, true);
+    dv.setUint16(10, count, true);
+    dv.setUint32(12, cdSize, true);
+    dv.setUint32(16, cdOffset, true);
+    dv.setUint16(20, 0, true);
+    return buf;
+}
+
+function concatU8(arrays) {
+    const total = arrays.reduce((s, a) => s + a.length, 0);
+    const out   = new Uint8Array(total);
+    let   off   = 0;
+    for (const a of arrays) { out.set(a, off); off += a.length; }
+    return out;
+}
+
+// CRC-32
+const CRC_TABLE = (function () {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+        t[n] = c;
+    }
+    return t;
+})();
+function crc32(data) {
+    let crc = 0xffffffff;
+    for (let i = 0; i < data.length; i++) crc = CRC_TABLE[(crc ^ data[i]) & 0xff] ^ (crc >>> 8);
+    return (crc ^ 0xffffffff) >>> 0;
+}
+
+// ============================================================================
+// Repair scan (re-run raw scan on demand)
+// ============================================================================
+function runRepairScan() {
+    if (!currentBuf) return;
+    log('Running deep repair scan...', 'warn');
+    clearLog();
+    log('🔧 Deep repair scan on: ' + currentName, 'warn');
+    let off = 0, count = 0;
+    const entries = [];
+    while (off < currentBuf.length - 30) {
+        const b = currentBuf;
+        if (b[off] !== 0x50 || b[off+1] !== 0x4b || b[off+2] !== 0x03 || b[off+3] !== 0x04) { off++; continue; }
+        try {
+            const method = u16(b, off + 8);
+            const nl = u16(b, off + 26), el = u16(b, off + 28);
+            if (nl === 0 || nl > 512) { off++; continue; }
+            const name = readStr(b, off + 30, nl);
+            let compSz = u32(b, off + 18);
+            const uncompSz = u32(b, off + 22);
+            const dataOff = off + 30 + nl + el;
+            if (compSz === 0 || compSz > b.length) {
+                let next = b.length;
+                for (let k = dataOff + 1; k < b.length - 4; k++) {
+                    if (b[k] === 0x50 && b[k+1] === 0x4b && (b[k+2] === 0x01 || b[k+2] === 0x03 || b[k+2] === 0x05)) { next = k; break; }
+                }
+                compSz = next - dataOff;
+            }
+            entries.push({ name, method, compSz, uncompSz, dataOff, isDir: name.endsWith('/'), isCorrupt: true });
+            count++;
+            off = dataOff + compSz;
+        } catch(e) { off++; }
+    }
+    allEntries = entries;
+    log('✓ Deep scan found ' + count + ' entries', count > 0 ? 'ok' : 'err');
+    renderTable(entries);
+    updateStats(entries, true);
+}
+
+// ============================================================================
+// File loading
+// ============================================================================
+function loadFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => loadBuffer(new Uint8Array(e.target.result), file.name);
+    reader.readAsArrayBuffer(file);
+}
+
+// Drag & drop
+const dz = document.getElementById('dropzone');
+dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', ()  => dz.classList.remove('drag'));
+dz.addEventListener('drop', (e) => {
+    e.preventDefault(); dz.classList.remove('drag');
+    const file = e.dataTransfer.files[0];
+    if (file) loadFile(file);
+});
+
+document.getElementById('fileInput').addEventListener('change', (e) => {
+    if (e.target.files[0]) loadFile(e.target.files[0]);
+    e.target.value = '';
+});
+
+// ============================================================================
+// Platform bridges
+// ============================================================================
+
+// Electron (Windows / macOS / Linux)
+function loadFileFromWindows(name, base64) {
+    const bin = atob(base64);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    loadBuffer(buf, name);
+}
+
+// iOS bridge
+function loadFileFromiOS(name, base64) { loadFileFromWindows(name, base64); }
+
+// Android bridge
+function loadFileFromAndroid(name, base64) { loadFileFromWindows(name, base64); }
+
+// Electron toolbar pick
+if (window.electronAPI) {
+    const pickBtn = document.createElement('button');
+    pickBtn.className = 'btn';
+    pickBtn.textContent = '📂 Open';
+    pickBtn.onclick = async () => {
+        const res = await window.electronAPI.pickFile();
+        if (res) loadFileFromWindows(res.fileName, res.data);
+    };
+    document.getElementById('toolbar').insertBefore(pickBtn, document.getElementById('fileName'));
+    document.getElementById('dropzone').querySelector('p').textContent = 'Drop a ZIP here or use Open button';
+}
+</script>
+</body>
+</html>
