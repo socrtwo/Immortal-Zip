@@ -86,8 +86,14 @@ yes | npx bubblewrap build --skipPwaValidation
 APK_OUT="$ROOT/dist/Immortal-Zip-1.0.0.apk"
 mkdir -p "$(dirname "$APK_OUT")"
 cp app-release-signed.apk "$APK_OUT" 2>/dev/null \
-  || cp app/build/outputs/apk/release/app-release.apk "$APK_OUT" \
-  || true
+  || cp app/build/outputs/apk/release/app-release.apk "$APK_OUT" 2>/dev/null \
+  || {
+       echo "ERROR: Bubblewrap did not produce an APK. Searched:" >&2
+       echo "  app-release-signed.apk" >&2
+       echo "  app/build/outputs/apk/release/app-release.apk" >&2
+       find . -name '*.apk' -print >&2 || true
+       exit 1
+     }
 
 echo ">>> Done."
-ls -lh "$APK_OUT" 2>/dev/null || echo "APK not produced — check Bubblewrap output above."
+ls -lh "$APK_OUT"

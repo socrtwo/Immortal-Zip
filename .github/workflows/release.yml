@@ -34,9 +34,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: linux
+          if-no-files-found: error
           path: |
             dist/*.AppImage
             dist/*.deb
+            dist/*.tar.gz
 
   macos:
     runs-on: macos-14
@@ -51,6 +53,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: macos
+          if-no-files-found: error
           path: dist/*.dmg
 
   windows:
@@ -69,6 +72,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: windows
+          if-no-files-found: error
           path: dist/*Setup.exe
 
   android:
@@ -88,6 +92,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: android
+          if-no-files-found: error
           path: dist/*.apk
 
   ios:
@@ -119,6 +124,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ios
+          if-no-files-found: error
           path: dist/*.ipa
 
   web:
@@ -132,17 +138,35 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: web
+          if-no-files-found: error
           path: dist/*.zip
 
   release:
-    needs: [linux, macos, windows, android, web]
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Depend on every platform job, but run even if some of them failed or
+    # were skipped: a single fragile platform (e.g. Android needs GitHub
+    # Pages live, iOS needs Apple signing secrets) must NOT prevent the
+    # release from attaching the assets that DID build. `always()` keeps
+    # the job running; the tag guard keeps it tag-only.
+    needs: [linux, macos, windows, android, ios, web]
+    if: always() && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/download-artifact@v4
-        with: { path: artifacts }
+        with:
+          path: artifacts
+          # Flatten every job's artifact into one directory.
+          merge-multiple: true
+      - name: List collected artifacts
+        run: |
+          echo "Artifacts to attach to the release:"
+          find artifacts -type f -printf '  %p (%s bytes)\n' | sort
+          if [ -z "$(find artifacts -type f)" ]; then
+            echo "::error::No build artifacts were produced — refusing to publish an empty release." >&2
+            exit 1
+          fi
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          fail_on_unmatched_files: true
           files: artifacts/**/*
