@@ -68,20 +68,26 @@ EOF
   exit 1
 fi
 
-# `init` may emit warnings; pipe a default "Y" answer for any prompts it
-# adds in future versions, but DO NOT mask non-zero exit codes — if init
-# fails we want the job to fail loudly rather than continue with a broken
-# project skeleton.
-yes | npx bubblewrap init --manifest "https://${PAGES_HOST}/manifest.webmanifest" --directory .
+# Provide the keystore passwords through the environment so `bubblewrap
+# build` never stops to prompt for them.
+export BUBBLEWRAP_KEYSTORE_PASSWORD="$KEYSTORE_PASS"
+export BUBBLEWRAP_KEY_PASSWORD="$KEYSTORE_PASS"
 
-# Use the patched manifest (overrides whatever init produced).
+# IMPORTANT: do NOT run the interactive `bubblewrap init`. Its first prompt
+# is the free-text Application ID, and piping `yes` into it answered "y" —
+# an invalid packageId with no "." — so Bubblewrap looped forever on
+#   ">> packageId must have at least 2 sections separated by '.'"
+# (flooding the log with "y"s) until the job timed out. Instead we drop in
+# our own complete, pre-validated twa-manifest.json (valid packageId +
+# signingKey) and generate the project from it non-interactively.
 cp "$ROOT/build/twa-manifest.json" ./twa-manifest.json
 sed -i "s|REPLACE_WITH_YOUR_PAGES_HOST|${PAGES_HOST}|g" twa-manifest.json
 
-# Bubblewrap detects the manifest mismatch and asks whether to regenerate
-# the project. Answer "Y" so it rebuilds the Android skeleton against our
-# patched manifest before producing the APK.
-yes | npx bubblewrap build --skipPwaValidation
+# Scaffold/refresh the Android project from the manifest, then build + sign.
+# stdin is closed (</dev/null) so any unexpected prompt fails fast instead
+# of hanging the runner on an infinite wait.
+npx bubblewrap update </dev/null
+npx bubblewrap build --skipPwaValidation </dev/null
 
 APK_OUT="$ROOT/dist/Immortal-Zip-1.0.0.apk"
 mkdir -p "$(dirname "$APK_OUT")"
