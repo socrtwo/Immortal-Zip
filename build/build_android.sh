@@ -84,15 +84,17 @@ cp "$ROOT/build/twa-manifest.json" ./twa-manifest.json
 sed -i "s|REPLACE_WITH_YOUR_PAGES_HOST|${PAGES_HOST}|g" twa-manifest.json
 
 # Scaffold/refresh the Android project from the manifest, then build + sign.
-# Bubblewrap's `update`/`build` still emit interactive prompts (notably
-# "versionName for the new App version"). Feed a finite stream of empty
-# lines so each prompt accepts its DEFAULT — the manifest already supplies
-# packageId, signingKey and version, so the defaults are correct. We use
-# printf (not `yes`, which would send "y" as a value) and a finite count so
-# the producer exits 0 and the pipeline stays pipefail-safe; closing stdin
-# (</dev/null) is wrong here because these prompts abort on EOF (exit 130).
-printf '\n%.0s' {1..50} | npx bubblewrap update
-printf '\n%.0s' {1..50} | npx bubblewrap build --skipPwaValidation
+# Bubblewrap's `update`/`build` still emit an interactive prompt:
+#   "versionName for the new App version"
+# It REJECTS an empty answer ("Minimum length is 1 but input is 0"), so
+# feeding blank lines just loops until it aborts (exit 130). Feed the actual
+# version (from the manifest) as the first answer, followed by a few blank
+# lines for any later prompts that DO have valid defaults. A finite feeder
+# means the producer exits 0, so the pipeline stays pipefail-safe.
+APP_VERSION=$(python3 -c "import json;print(json.load(open('twa-manifest.json')).get('appVersionName','1.0.0'))" 2>/dev/null || echo 1.0.0)
+answers() { printf '%s\n' "$APP_VERSION"; printf '\n%.0s' {1..20}; }
+answers | npx bubblewrap update
+answers | npx bubblewrap build --skipPwaValidation
 
 APK_OUT="$ROOT/dist/Immortal-Zip-1.0.0.apk"
 mkdir -p "$(dirname "$APK_OUT")"
