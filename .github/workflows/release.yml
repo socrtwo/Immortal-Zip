@@ -133,11 +133,56 @@ jobs:
       - uses: actions/checkout@v4
       - name: Package web bundle
         run: |
+          VERSION="${GITHUB_REF_NAME#v}"
           mkdir -p dist
-          (cd web && zip -r ../dist/Immortal-Zip-Web-1.0.0.zip .)
+          (cd web && zip -r "../dist/Immortal-Zip-Web-${VERSION}.zip" .)
       - uses: actions/upload-artifact@v4
         with:
           name: web
+          if-no-files-found: error
+          path: dist/*.zip
+
+  chromeos-ios:
+    # ChromeOS ships the MV3 extension from chromeos/; the iOS bundle
+    # ships the PWA plus the Xcode wrapper sources (an App Store IPA
+    # needs the maintainer's signing identity, so it is only built by
+    # the gated `ios` job when IOS_ENABLED is set).
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package ChromeOS extension bundle
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          (cd chromeos && zip -r "../dist/Immortal-Zip-chromeos-${VERSION}.zip" .)
+      - name: Package iOS bundle
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          stage=$(mktemp -d)
+          mkdir -p "$stage/pwa"
+          cp -r web/. "$stage/pwa/"
+          cp -r ios "$stage/ios-xcode-project"
+          printf '%s\n' \
+            '# Immortal Unzip — iOS / iPadOS' \
+            '' \
+            'Two ways to get Immortal Unzip on iPhone or iPad:' \
+            '' \
+            '## 1. Install the web app (no Mac required)' \
+            '' \
+            '1. Open https://socrtwo.github.io/Immortal-Zip/ in Safari.' \
+            '2. Tap the Share button, then **Add to Home Screen**.' \
+            '3. The app installs and works offline. (The pwa/ folder in' \
+            '   this zip is the same app, for self-hosting.)' \
+            '' \
+            '## 2. Build the native app with Xcode' \
+            '' \
+            'Open ios-xcode-project/ImmortalUnzip.xcodeproj in Xcode 15+,' \
+            'set your signing team, and press Run. See the README inside.' \
+            > "$stage/INSTALL.md"
+          (cd "$stage" && zip -r "$GITHUB_WORKSPACE/dist/Immortal-Zip-ios-${VERSION}.zip" .)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chromeos-ios
           if-no-files-found: error
           path: dist/*.zip
 
@@ -147,7 +192,7 @@ jobs:
     # Pages live, iOS needs Apple signing secrets) must NOT prevent the
     # release from attaching the assets that DID build. `always()` keeps
     # the job running; the tag guard keeps it tag-only.
-    needs: [linux, macos, windows, android, ios, web]
+    needs: [linux, macos, windows, android, ios, web, chromeos-ios]
     if: always() && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-22.04
     steps:
