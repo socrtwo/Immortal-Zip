@@ -4,6 +4,11 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create (e.g. v1.0.9). When set, the run publishes a release at this tag."
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -132,8 +137,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Package web bundle
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${RELEASE_TAG#v}"
           mkdir -p dist
           (cd web && zip -r "../dist/Immortal-Zip-Web-${VERSION}.zip" .)
       - uses: actions/upload-artifact@v4
@@ -151,13 +158,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Package ChromeOS extension bundle
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${RELEASE_TAG#v}"
           mkdir -p dist
           (cd chromeos && zip -r "../dist/Immortal-Zip-chromeos-${VERSION}.zip" .)
       - name: Package iOS bundle
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${RELEASE_TAG#v}"
           stage=$(mktemp -d)
           mkdir -p "$stage/pwa"
           cp -r web/. "$stage/pwa/"
@@ -193,7 +204,7 @@ jobs:
     # release from attaching the assets that DID build. `always()` keeps
     # the job running; the tag guard keeps it tag-only.
     needs: [linux, macos, windows, android, ios, web, chromeos-ios]
-    if: always() && startsWith(github.ref, 'refs/tags/v')
+    if: always() && (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.tag != ''))
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/download-artifact@v4
@@ -212,6 +223,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: artifacts/**/*
