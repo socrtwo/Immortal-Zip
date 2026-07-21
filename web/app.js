@@ -78,12 +78,33 @@
     setProgress(100);
   });
 
+  // --- S2 file identification (first analysis step) -----------------------
+  // Runs as soon as a file is loaded, BEFORE any unzip/repair: identifies the
+  // real type from magic numbers, separates embedded/concatenated foreign
+  // files (downloadable immediately from the panel), and yields the bytes the
+  // zip machinery should actually operate on.
+  async function s2Identify(file, panelSel) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (!window.S2FileID) return { bytes, report: null };
+    try {
+      const report = S2FileID.analyze(bytes, { programKey: 'immortalzip', fileName: file.name });
+      S2FileID.renderPanel($(panelSel), report);
+      setStatus('Identified: ' + report.primary.description);
+      return { bytes, report };
+    } catch (err) {
+      console.error('S2FileID analysis failed:', err);
+      return { bytes, report: null };
+    }
+  }
+
   // --- Unzip --------------------------------------------------------------
   let unzipFile = null;
+  let unzipAnalysis = null;
   wireDropzone('label[for=unzipInput]', '#unzipInput', (files) => {
     unzipFile = files[0];
     $('#unzipName').textContent = unzipFile.name;
     $('#unzipBtn').disabled = false;
+    unzipAnalysis = s2Identify(unzipFile, '#unzipIdPanel');
   });
 
   $('#unzipBtn').addEventListener('click', async () => {
@@ -91,7 +112,8 @@
     setStatus('Reading archive…');
     setProgress(0);
     try {
-      const zip = await JSZip.loadAsync(await unzipFile.arrayBuffer());
+      const { bytes, report } = await unzipAnalysis;
+      const zip = await JSZip.loadAsync(report ? report.proceedBytes : bytes);
       const entries = Object.values(zip.files);
       const ul = $('#unzipResults');
       ul.innerHTML = '';
@@ -117,10 +139,12 @@
 
   // --- Repair -------------------------------------------------------------
   let repairFile = null;
+  let repairAnalysis = null;
   wireDropzone('label[for=repairInput]', '#repairInput', (files) => {
     repairFile = files[0];
     $('#repairName').textContent = repairFile.name;
     $('#repairBtn').disabled = false;
+    repairAnalysis = s2Identify(repairFile, '#repairIdPanel');
   });
 
   $('#repairBtn').addEventListener('click', async () => {
@@ -130,7 +154,11 @@
     const log = $('#repairLog');
     log.textContent = '';
 
-    const bytes = new Uint8Array(await repairFile.arrayBuffer());
+    const analysis = await repairAnalysis;
+    const bytes = analysis.report ? analysis.report.proceedBytes : analysis.bytes;
+    if (analysis.report && analysis.report.foreign.length) {
+      log.textContent += `separated  ${analysis.report.foreign.length} embedded/concatenated foreign file(s) — download above\n`;
+    }
     const entries = scanLocalHeaders(bytes);
     if (!entries.length) {
       setStatus('No zip data found.');

@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import __version__
+from . import __version__, file_id
 from .core import ZipError, ZipTool
 
 
@@ -53,7 +53,54 @@ def cmd_test(args: argparse.Namespace) -> int:
 
 def cmd_repair(args: argparse.Namespace) -> int:
     tool = ZipTool(progress=_print_progress if not args.quiet else None)
-    result = tool.repair(args.archive, args.output)
+
+    # First analysis step: identify the file from its magic numbers and
+    # separate any embedded/concatenated foreign files before repairing.
+    arc_path = Path(args.archive)
+    out_path = (
+        Path(args.output)
+        if args.output is not None
+        else arc_path.with_name(arc_path.stem + ".repaired.zip")
+    )
+    repair_data: bytes | None = None
+    try:
+        data = arc_path.read_bytes()
+    except OSError:
+        data = None
+    if data is not None:
+        report = file_id.analyze(
+            data, program_key="immortalzip", file_name=arc_path.name
+        )
+        print(f"Identified as: {report.primary.description}")
+        if report.mismatch:
+            recs = file_id.recommend(report.primary.ext)
+            print(
+                "Warning: this does not look like a ZIP-family file."
+                + (f" Recommended tool: {recs[0]['name']} <{recs[0]['url']}>" if recs else "")
+            )
+        if report.foreign:
+            print(
+                f"Found {len(report.foreign)} segment(s) of a type this program "
+                "does not handle; writing them out before repair:"
+            )
+            for seg in report.foreign:
+                part_path = out_path.with_name(
+                    f"{out_path.stem}.part{seg.index + 1}.{seg.ext}"
+                )
+                part_path.parent.mkdir(parents=True, exist_ok=True)
+                part_path.write_bytes(seg.data)
+                rec = seg.recommended[0] if seg.recommended else None
+                print(f"  - {part_path.name}: {seg.description} ({seg.length} bytes at offset {seg.offset})")
+                if rec:
+                    print(f"    Repair it with: {rec['name']} <{rec['url']}>")
+        if len(report.proceed_bytes) != len(data):
+            print(
+                f"Proceeding to repair the {len(report.proceed_bytes)}-byte ZIP "
+                f"segment at offset {report.proceed_segment.offset}."
+            )
+            repair_data = report.proceed_bytes
+
+    result = tool.repair(args.archive, args.output, data=repair_data)
     print(f"Repaired archive written to: {result.output}")
     print(f"Recovered: {result.recovered_count} members")
     if result.skipped:

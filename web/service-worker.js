@@ -1,9 +1,10 @@
-const CACHE = 'immortal-zip-v1';
+const CACHE = 'immortal-zip-v2';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './s2-file-id.js',
   './manifest.webmanifest',
   './vendor/jszip.min.js',
   './vendor/fflate.min.js',
