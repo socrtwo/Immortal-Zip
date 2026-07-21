@@ -129,8 +129,14 @@ class ZipTool:
         self,
         archive: str | os.PathLike[str],
         output: str | os.PathLike[str] | None = None,
+        data: bytes | None = None,
     ) -> RepairResult:
-        """Repair a corrupted zip by salvaging every readable member."""
+        """Repair a corrupted zip by salvaging every readable member.
+
+        When ``data`` is given it is used instead of reading ``archive`` —
+        e.g. the zip segment separated out of a concatenated file by
+        :mod:`immortal_zip.file_id`.
+        """
         arc_path = Path(archive)
         if not arc_path.is_file():
             raise ZipError(f"Archive not found: {arc_path}")
@@ -142,7 +148,8 @@ class ZipTool:
         )
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
-        data = arc_path.read_bytes()
+        if data is None:
+            data = arc_path.read_bytes()
         result = RepairResult(source=arc_path, output=out_path)
         result.rebuilt_central_directory = True
 
